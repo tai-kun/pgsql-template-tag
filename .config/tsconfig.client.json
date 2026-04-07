@@ -1,0 +1,20 @@
+{
+  "extends": [
+    "@tsconfig/strictest"
+  ],
+  "include": [
+    "../src/**/*",
+    "../tests/**/*"
+  ],
+  "compilerOptions": {
+    "lib": [
+      "DOM",
+      "ESNext"
+    ],
+    "noEmit": true,
+    "target": "es2020",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "erasableSyntaxOnly": true
+  }
+}

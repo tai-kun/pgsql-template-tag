@@ -1,0 +1,30 @@
+[tools]
+node = "24"
+
+[tasks.test]
+run = [
+    { task = "test:server" },
+    { task = "test:client" },
+    { task = "test:typecheck" },
+]
+
+[tasks."test:server"]
+run = "npx vitest --config ./.config/vitest.server.ts"
+
+[tasks."test:client"]
+run = "npx vitest --config ./.config/vitest.client.ts"
+
+[tasks."test:typecheck"]
+run = [
+    "npx tsc --noEmit --project ./.config/tsconfig.client.json",
+    "npx tsc --noEmit --project ./.config/tsconfig.server.json",
+    "npx tsc --noEmit --project ./.config/tsconfig.config.json",
+]
+
+[tasks.update]
+run = [
+    "npx npm-check-updates --target minor --upgrade --cooldown 3",
+    "npm install",
+    "npx playwright install chromium --with-deps",
+    "npm audit",
+]

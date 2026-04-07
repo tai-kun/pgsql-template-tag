@@ -1,0 +1,48 @@
+{
+  // 一般
+
+  "editor.rulers": [100],
+  "editor.wordWrapColumn": 100,
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.stylelint": "always"
+  },
+
+  // dprint
+
+  "dprint.path": "./node_modules/dprint/dprint",
+
+  // TypeScript
+
+  "typescript.tsdk": "./node_modules/typescript/lib",
+
+  // ファイル毎の設定
+
+  "[yaml][json][jsonc][javascript][typescript]": {
+    "editor.indentSize": 2,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "dprint.dprint"
+  },
+
+  "[toml]": {
+    "editor.indentSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "dprint.dprint"
+  },
+
+  "[astro]": {
+    "editor.indentSize": 2,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "dprint.dprint"
+  },
+
+  "[markdown][mdx]": {
+    "editor.indentSize": 2,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "dprint.dprint"
+  }
+}
