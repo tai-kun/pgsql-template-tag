@@ -1,5 +1,6 @@
 export type Value = unknown;
 
+// oxlint-disable-next-line typescript/no-redundant-type-constituents
 export type RawValue = Value | Sql;
 
 export class Sql {
@@ -25,13 +26,15 @@ export class Sql {
   public readonly values: readonly Value[];
 
   private readonly _: {
-    t: {
-      readonly c: false;
-      readonly v: readonly number[];
-    } | {
-      readonly c: true;
-      readonly v: string;
-    };
+    t:
+      | {
+          readonly c: false;
+          readonly v: readonly number[];
+        }
+      | {
+          readonly c: true;
+          readonly v: string;
+        };
     readonly s: readonly [string, ...string[]];
   };
 
@@ -99,13 +102,13 @@ export class Sql {
 
     this.values = bindings;
     Object.defineProperty(this, "_", {
-      value: this._ = {
+      value: (this._ = {
         t: {
           c: false,
           v: placeholderIds,
         },
         s: strings,
-      },
+      }),
     });
   }
 

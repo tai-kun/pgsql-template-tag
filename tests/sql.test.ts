@@ -1,4 +1,5 @@
 import { test } from "vitest";
+
 import { sql } from "../src/sql.js";
 
 test("テンプレートリテラルで Sql インスタンスを作成できる", ({ expect }) => {
