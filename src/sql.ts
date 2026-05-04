@@ -1,4 +1,4 @@
-import { empty, join, raw, type RawValue, Sql } from "./core.js";
+import { empty, join, raw, Sql, ident } from "./core.js";
 
 namespace sql {
   export type RawValue = import("./core.js").RawValue;
@@ -9,7 +9,7 @@ namespace sql {
 }
 
 const sql = /*#__PURE__*/ Object.assign(
-  function sql(strings: TemplateStringsArray, ...bindings: readonly RawValue[]): Sql {
+  function sql(strings: TemplateStringsArray, ...bindings: readonly sql.RawValue[]): sql.Sql {
     return new Sql(strings, bindings);
   },
   {
@@ -17,6 +17,7 @@ const sql = /*#__PURE__*/ Object.assign(
     raw,
     join,
     empty,
+    ident,
   } as const,
 );
 

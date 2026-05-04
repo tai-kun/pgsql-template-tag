@@ -140,3 +140,9 @@ export function join(values: readonly RawValue[], separator: string | undefined 
 
   return new Sql(["", ...Array(values.length - 1).fill(separator), ""], values);
 }
+
+const DOUBLE_QUOTE_REGEX = /"/g;
+
+export function ident(value: string): string {
+  return '"' + value.replace(DOUBLE_QUOTE_REGEX, '""') + '"';
+}
