@@ -14,12 +14,10 @@ type PrivateState = {
 export class Sql {
   public get text(): string {
     if (this._.t === undefined) {
-      const { s, p } = this._;
-
-      let text = s[0];
-
-      for (let i = 0; i < p.length; i++) {
-        text += "$" + p[i] + s[i + 1];
+      let i = 0,
+        text = this._.s[0];
+      for (; i < this._.p.length; i++) {
+        text += "$" + this._.p[i] + this._.s[i + 1];
       }
 
       this._.t = text;
@@ -30,7 +28,7 @@ export class Sql {
 
   public readonly values: readonly Value[];
 
-  private readonly _: PrivateState;
+  private readonly _!: PrivateState;
 
   public constructor(rawStrings: readonly string[], rawBindings: readonly RawValue[]) {
     if (rawStrings.length === 0) {
@@ -54,15 +52,11 @@ export class Sql {
       const rawString = rawStrings[i + 1]!;
 
       if (child instanceof Sql) {
-        const childValues = child.values;
-        const childStrings = child._.s;
-        const childPlaceholderIds = child._.p;
+        strings[strings.length - 1] += child._.s[0];
 
-        strings[strings.length - 1] += childStrings[0];
-
-        for (let j = 0; j < childPlaceholderIds.length; j++) {
-          const childPlaceholderId = childPlaceholderIds[j]!;
-          const value = childValues[childPlaceholderId - 1]!;
+        for (let j = 0; j < child._.p.length; j++) {
+          const childPlaceholderId = child._.p[j]!;
+          const value = child.values[childPlaceholderId - 1]!;
 
           let placeholderId = valueToId.get(value);
           if (placeholderId === undefined) {
@@ -71,7 +65,7 @@ export class Sql {
             valueToId.set(value, placeholderId);
           }
 
-          strings.push(childStrings[j + 1]!);
+          strings.push(child._.s[j + 1]!);
           placeholderIds.push(placeholderId);
         }
 
@@ -91,10 +85,10 @@ export class Sql {
 
     this.values = bindings;
     Object.defineProperty(this, "_", {
-      value: (this._ = {
+      value: {
         s: strings,
         p: placeholderIds,
-      }),
+      },
     });
   }
 
