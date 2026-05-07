@@ -218,3 +218,20 @@ const DOUBLE_QUOTE_REGEX = /"/g;
 export function ident(value: string): string {
   return '"' + value.replace(DOUBLE_QUOTE_REGEX, '""') + '"';
 }
+
+/**
+ * 一重引用符をエスケープするための正規表現です。
+ */
+const SINGLE_QUOTE_REGEX = /'/g;
+
+/**
+ * 文字列を SQL のリテラル文字列として安全にエスケープします。
+ *
+ * 一重引用符を二重にすることでエスケープを行い、全体を一重引用符で囲みます。
+ *
+ * @param value エスケープする文字列です。
+ * @returns エスケープ済みのリテラル文字列を返します。
+ */
+export function literal(value: string): string {
+  return "'" + value.replace(SINGLE_QUOTE_REGEX, "''") + "'";
+}

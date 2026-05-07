@@ -1,4 +1,4 @@
-import { empty, join, raw, Sql, ident } from "./core.js";
+import { empty, join, raw, Sql, ident, literal } from "./core.js";
 
 namespace sql {
   /**
@@ -57,6 +57,11 @@ const sql = /*#__PURE__*/ Object.assign(
      * 識別子（テーブル名等）を安全にエスケープするための関数です。
      */
     ident,
+
+    /**
+     * 文字列を安全にエスケープするための関数です。
+     */
+    literal,
   } as const,
 );
 
