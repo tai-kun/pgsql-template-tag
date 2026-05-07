@@ -155,6 +155,19 @@ describe("ユーティリティ関数の振る舞い", () => {
     expect(sql.text).toBe("SELECT * FROM table");
     expect(sql.values).toHaveLength(0);
   });
+
+  test("values が圧縮された Sql を join できる", ({ expect }) => {
+    // Arrange
+    const rawStrings1 = ["INSERT INTO table (a, b) VALUES (", ", ", ")"];
+    const rawBindings1 = [100, 100];
+    const sql1 = new Sql(rawStrings1, rawBindings1);
+
+    // Act
+    const sql = join([sql1], "");
+
+    // Assert
+    expect(sql.text).toBe("INSERT INTO table (a, b) VALUES ($1, $1)");
+  });
 });
 
 describe("異常系と検証の振る舞い", () => {
