@@ -196,6 +196,7 @@ describe("Sql.fill メソッド (オブジェクト形式)", () => {
     const sql = new Sql(["id = ", ""], [slot]);
 
     // Act
+    // @ts-expect-error
     const filled = sql.fill({ unknown: 999 });
 
     // Assert
@@ -229,7 +230,7 @@ describe("Sql.fill メソッド (Iterable 形式)", () => {
     // Arrange
     const slot = new Slot("id", 1);
     const sql = new Sql(["id = ", ""], [slot]);
-    const valuesMap = new Map<string | Slot, any>([["id", 200]]);
+    const valuesMap = new Map<"id" | Slot<"id", number>, number>([["id", 200]]);
 
     // Act
     const filled = sql.fill(valuesMap);
@@ -245,9 +246,9 @@ describe("Sql.fill メソッド (Iterable 形式)", () => {
     expect,
   }) => {
     // Arrange
-    const slotObj = new Slot("id", 1);
-    const sql = new Sql(["id = ", ""], [slotObj]);
-    const updates: [Slot, any][] = [[slotObj, "val"]];
+    const slot = new Slot<"id", number | string>("id", 1);
+    const sql = new Sql(["id = ", ""], [slot]);
+    const updates: [Slot<"id", number | string>, string][] = [[slot, "val"]];
 
     // Act
     const filled = sql.fill(updates);
@@ -263,7 +264,7 @@ describe("Sql.fill メソッド (Iterable 形式)", () => {
     // Arrange
     const slot = new Slot("id", 0);
     const sql = new Sql(["id = ", ""], [slot]);
-    const updates: [string, any][] = [
+    const updates: ["id", number][] = [
       ["id", 1],
       ["id", 2],
     ];
@@ -276,6 +277,21 @@ describe("Sql.fill メソッド (Iterable 形式)", () => {
       text: "id = $1",
       values: [2],
     });
+  });
+});
+
+describe("Sql.fillAll メソッド", () => {
+  test("一部のスロットが不足しているとき、欠落しているスロット名を含むエラーを投げる", ({
+    expect,
+  }) => {
+    // Arrange
+    const idSlot = new Slot<"id", string>("id", "1");
+    const nameSlot = new Slot<"name", string>("name", "?");
+    const sql = new Sql(["SELECT * FROM user WHERE id = ", " AND name = ", ""], [idSlot, nameSlot]);
+    const slots: any = { id: "1" };
+
+    // Act & Assert
+    expect(() => sql.fillAll(slots)).toThrow("Not all slots are filled. Missing: name");
   });
 });
 
