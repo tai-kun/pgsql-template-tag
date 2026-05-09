@@ -477,14 +477,14 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
  * @param value SQL に含める生の文字列です。
  * @returns 指定された文字列を持つ Sql インスタンスを返します。
  */
-export function raw(value: string): Sql {
+export function raw(value: string): Sql<[]> {
   return new Sql([value], []);
 }
 
 /**
  * 空の SQL インスタンスを表す定数です。
  */
-export const empty: Sql = raw("");
+export const empty: Sql<[]> = raw("");
 
 /**
  * 複数の SQL 断片や値を、指定されたセパレーターで結合します。
@@ -495,7 +495,10 @@ export const empty: Sql = raw("");
  * @param separator 結合時に挿入される文字列です。デフォルトはカンマ（,）です。
  * @returns 結合された新しい Sql インスタンスを返します。
  */
-export function join(values: readonly RawValue[], separator: string | undefined = ","): Sql {
+export function join<const TValues extends readonly RawValue[]>(
+  values: TValues,
+  separator: string | undefined = ",",
+): Sql<TValues> {
   if (values.length === 0) {
     return empty;
   }
@@ -535,4 +538,22 @@ const SINGLE_QUOTE_REGEX = /'/g;
  */
 export function literal(value: string): string {
   return "'" + value.replace(SINGLE_QUOTE_REGEX, "''") + "'";
+}
+
+/**
+ * 新しい Slot インスタンスを作成します。
+ *
+ * @template TName スロットの名前となる文字列リテラル型です。
+ * @template TValue スロットに許容される値の型です。
+ * @param name スロット名です。
+ * @param defaultValue デフォルト値です。
+ * @returns 作成された新しい Slot インスタンスです。
+ */
+export function slot<const TName extends string, TValue extends RawValue = RawValue>(
+  name: TName,
+  defaultValue?: TValue,
+): Slot<TName, TValue>;
+
+export function slot(...args: [any]): Slot {
+  return new Slot(...args);
 }
