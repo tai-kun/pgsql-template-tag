@@ -1,6 +1,6 @@
 import { describe, test } from "vitest";
 
-import { ident, join, literal, raw, Sql } from "../src/core.js";
+import { ident, join, literal, raw, Sql, Slot } from "../src/core.js";
 
 describe("基本的なインスタンス化とプレースホルダー生成の振る舞い", () => {
   test("1 つのバインド変数を持つ SQL を生成したとき、プレースホルダー $1 と値が正しく設定される", ({
@@ -109,6 +109,173 @@ describe("Sql オブジェクトの結合とネストの振る舞い", () => {
     expect(parentSql.text).toBe("status = $1 AND category = $1");
     expect(parentSql.values).toHaveLength(1);
     expect(parentSql.values[0]).toBe(status);
+  });
+});
+
+describe("Slot クラスの基本機能", () => {
+  test("名前とデフォルト値を指定してインスタンス化したとき、プロパティーが正しく保持される", ({
+    expect,
+  }) => {
+    // Arrange
+    const name = "id";
+    const defaultValue = 1;
+
+    // Act
+    const slot = new Slot(name, defaultValue);
+
+    // Assert
+    expect(slot.name).toBe("id");
+    expect(slot.defaultValue).toBe(1);
+  });
+
+  test("デフォルト値を省略してインスタンス化したとき、defaultValue が null になる", ({
+    expect,
+  }) => {
+    // Arrange
+    const name = "id";
+
+    // Act
+    const slot = new Slot(name);
+
+    // Assert
+    expect(slot.defaultValue).toBe(null);
+  });
+
+  test("undefined のデフォルト値は undefined になる", ({ expect }) => {
+    // Arrange
+    const name = "id";
+    const defaultValue = undefined;
+
+    // Act
+    const slot = new Slot(name, defaultValue);
+
+    // Assert
+    expect(slot.defaultValue).toBe(undefined);
+  });
+});
+
+describe("Sql.fill メソッド (オブジェクト形式)", () => {
+  test("オブジェクト形式で単一のスロットを指定したとき、該当する値が更新される", ({ expect }) => {
+    // Arrange
+    const slot = new Slot("id", 1);
+    const sql = new Sql(["SELECT * FROM users WHERE id = ", ""], [slot]);
+
+    // Act
+    const filled = sql.fill({ id: 100 });
+
+    // Assert
+    expect(filled.toJSON()).toStrictEqual({
+      text: "SELECT * FROM users WHERE id = $1",
+      values: [100],
+    });
+  });
+
+  test("オブジェクト形式で複数のスロットを同時に指定したとき、それぞれの値が適切に更新される", ({
+    expect,
+  }) => {
+    // Arrange
+    const p1 = new Slot("p1", "A");
+    const p2 = new Slot("p2", "B");
+    const sql = new Sql(["", " ", ""], [p1, p2]);
+
+    // Act
+    const filled = sql.fill({ p1: "X", p2: "Y" });
+
+    // Assert
+    expect(filled.toJSON()).toStrictEqual({
+      text: "$1 $2",
+      values: ["X", "Y"],
+    });
+  });
+
+  test("存在しないスロット名を指定したとき、既存の値に変化はなくエラーも発生しない", ({
+    expect,
+  }) => {
+    // Arrange
+    const slot = new Slot("id", 1);
+    const sql = new Sql(["id = ", ""], [slot]);
+
+    // Act
+    const filled = sql.fill({ unknown: 999 });
+
+    // Assert
+    expect(filled.toJSON()).toStrictEqual({
+      text: "id = $1",
+      values: [1],
+    });
+  });
+
+  test("同じ名前のスロットが複数箇所にあるとき、全てのプレースホルダーが更新される", ({
+    expect,
+  }) => {
+    // Arrange
+    const s1 = new Slot("dup", 0);
+    const s2 = new Slot("dup", 0);
+    const sql = new Sql(["a = ", " OR b = ", ""], [s1, s2]);
+
+    // Act
+    const filled = sql.fill({ dup: 10 });
+
+    // Assert
+    expect(filled.toJSON()).toStrictEqual({
+      text: "a = $1 OR b = $1",
+      values: [10],
+    });
+  });
+});
+
+describe("Sql.fill メソッド (Iterable 形式)", () => {
+  test("Map オブジェクトを用いて更新したとき、値が正しく反映される", ({ expect }) => {
+    // Arrange
+    const slot = new Slot("id", 1);
+    const sql = new Sql(["id = ", ""], [slot]);
+    const valuesMap = new Map<string | Slot, any>([["id", 200]]);
+
+    // Act
+    const filled = sql.fill(valuesMap);
+
+    // Assert
+    expect(filled.toJSON()).toStrictEqual({
+      text: "id = $1",
+      values: [200],
+    });
+  });
+
+  test("Slot インスタンスをキーとして直接指定したとき、インスタンス一致によって値が更新される", ({
+    expect,
+  }) => {
+    // Arrange
+    const slotObj = new Slot("id", 1);
+    const sql = new Sql(["id = ", ""], [slotObj]);
+    const updates: [Slot, any][] = [[slotObj, "val"]];
+
+    // Act
+    const filled = sql.fill(updates);
+
+    // Assert
+    expect(filled.toJSON()).toStrictEqual({
+      text: "id = $1",
+      values: ["val"],
+    });
+  });
+
+  test("配列内での重複キーが指定されたとき、後の値が優先される", ({ expect }) => {
+    // Arrange
+    const slot = new Slot("id", 0);
+    const sql = new Sql(["id = ", ""], [slot]);
+    const updates: [string, any][] = [
+      ["id", 1],
+      ["id", 2],
+    ];
+
+    // Act
+    const filled = sql.fill(updates);
+
+    // Assert
+    expect(filled.toJSON()).toStrictEqual({
+      text: "id = $1",
+      values: [2],
+    });
   });
 });
 
@@ -377,7 +544,7 @@ describe("特殊な型と内部状態の振る舞い", () => {
     expect(sql.values[2]).toStrictEqual({ a: 1 });
   });
 
-  test("text プロパティに連続してアクセスしたとき、2 回目以降はキャッシュされた値が返る", ({
+  test("text プロパティーに連続してアクセスしたとき、2 回目以降はキャッシュされた値が返る", ({
     expect,
   }) => {
     // Arrange

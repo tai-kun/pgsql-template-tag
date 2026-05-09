@@ -1,4 +1,4 @@
-import { empty, join, raw, Sql, ident, literal } from "./core.js";
+import { empty, join, raw, Sql, ident, literal, Slot } from "./core.js";
 
 namespace sql {
   /**
@@ -12,9 +12,29 @@ namespace sql {
   export type Value = import("./core.js").Value;
 
   /**
+   * スロットを表すクラスです。
+   *
+   * スロットは後から値を注入可能なプレースホルダーです。
+   */
+  export type Slot = import("./core.js").Slot;
+
+  /**
    * 安全な SQL クエリーを構築するためのクラス型です。
    */
   export type Sql = import("./core.js").Sql;
+}
+
+/**
+ * 新しい Slot インスタンスを作成します。
+ *
+ * @param name スロット名です。
+ * @param defaultValue デフォルト値です。
+ * @returns 作成された新しい Slot インスタンスです。
+ */
+function slot(name: string, defaultValue?: sql.Value): sql.Slot;
+
+function slot(...args: [any]): sql.Slot {
+  return new sql.Slot(...args);
 }
 
 /**
@@ -34,7 +54,7 @@ const sql = /*#__PURE__*/ Object.assign(
   },
   {
     /**
-     * Sql クラス自体への参照です。
+     * Sql クラスです。
      */
     Sql,
 
@@ -42,6 +62,18 @@ const sql = /*#__PURE__*/ Object.assign(
      * 生の文字列を SQL 断片として扱うための関数です。
      */
     raw,
+
+    /**
+     *　新しい Slot インスタンスを作成する関数です。
+     */
+    slot,
+
+    /**
+     * スロットを表すクラスです。
+     *
+     * スロットは後から値を注入可能なプレースホルダーです。
+     */
+    Slot,
 
     /**
      * 複数の SQL 断片を結合するための関数です。
