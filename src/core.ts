@@ -202,6 +202,8 @@ type PrivateState = {
   text?: string;
 };
 
+let internalUse = false;
+
 /**
  * 安全な SQL クエリーを構築するためのクラスです。
  *
@@ -251,6 +253,12 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
    * @param rawBindings 文字列の間に挿入される値の配列です。
    */
   public constructor(rawStrings: readonly string[], rawBindings: TRawBindings) {
+    if (internalUse) {
+      this.values = arguments[0] as Value[];
+      this.#state = arguments[1] as PrivateState;
+      return;
+    }
+
     if (rawStrings.length === 0) {
       throw new TypeError("Expected at least 1 string");
     }
@@ -369,7 +377,7 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
       slots = new Map(slots);
     }
 
-    const { parts, idx2slot, slot2idx } = this.#state;
+    const { idx2slot, slot2idx } = this.#state;
     const filled = new Set<number>();
     const values = this.values.slice();
     for (const [target, value] of new Map(slots)) {
@@ -415,7 +423,13 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
       }
     }
 
-    return new Sql(parts, values);
+    internalUse = true;
+    try {
+      // @ts-expect-error
+      return new Sql(values, this.#state);
+    } finally {
+      internalUse = false;
+    }
   }
 
   /**

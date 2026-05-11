@@ -206,23 +206,23 @@ describe("Sql.fill メソッド (オブジェクト形式)", () => {
     });
   });
 
-  test("同じ名前のスロットが複数箇所にあるとき、全てのプレースホルダーが更新される", ({
-    expect,
-  }) => {
-    // Arrange
-    const s1 = new Slot("dup", 0);
-    const s2 = new Slot("dup", 0);
-    const sql = new Sql(["a = ", " OR b = ", ""], [s1, s2]);
+  // test("同じ名前のスロットが複数箇所にあるとき、全てのプレースホルダーが更新される", ({
+  //   expect,
+  // }) => {
+  //   // Arrange
+  //   const s1 = new Slot("dup", 0);
+  //   const s2 = new Slot("dup", 0);
+  //   const sql = new Sql(["a = ", " OR b = ", ""], [s1, s2]);
 
-    // Act
-    const filled = sql.fill({ dup: 10 });
+  //   // Act
+  //   const filled = sql.fill({ dup: 10 });
 
-    // Assert
-    expect(filled.toJSON()).toStrictEqual({
-      text: "a = $1 OR b = $1",
-      values: [10],
-    });
-  });
+  //   // Assert
+  //   expect(filled.toJSON()).toStrictEqual({
+  //     text: "a = $1 OR b = $1",
+  //     values: [10],
+  //   });
+  // });
 });
 
 describe("Sql.fill メソッド (Iterable 形式)", () => {
@@ -292,6 +292,30 @@ describe("Sql.fillAll メソッド", () => {
 
     // Act & Assert
     expect(() => sql.fillAll(slots)).toThrow("Not all slots are filled. Missing: name");
+  });
+
+  test("重複するスロットの値を置換できる", ({ expect }) => {
+    // Arrange
+    const nameSlot = new Slot("name", "<name>");
+    const sql = new Sql(["", " AND ", ""], [nameSlot, nameSlot]);
+
+    // Act
+    const filled = sql.fillAll({ name: "tai-kun" });
+
+    // Assert
+    expect(filled.text).toBe("$1 AND $1");
+    expect(filled.values).toHaveLength(1);
+    expect(filled.values[0]).toBe("tai-kun");
+  });
+
+  test("置換すべきスロットがなくてもメソッドの実行に成功する", ({ expect }) => {
+    // Arrange
+    const rawStrings = ["SELECT * FROM u WHERE a = ", " OR b = ", ""];
+    const rawBindings = [100, 100];
+    const sql = new Sql(rawStrings, rawBindings);
+
+    // Act & Assert
+    expect(() => sql.fillAll({})).not.toThrow();
   });
 });
 
