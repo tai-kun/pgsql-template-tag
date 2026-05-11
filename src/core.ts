@@ -98,17 +98,18 @@ type $MergeSlotValue<TSlots> = TSlots extends [
     : never;
 
 /**
- * RawValue の配列からスロット情報を抽出し、名前ごとのマップ型に変換します。
+ * Value の配列からスロット情報を抽出し、名前ごとのマップ型に変換します。
  *
- * @template TValues RawValue の読み取り専用配列型です。
+ * @template TValues Value の読み取り専用配列型です。
  */
-type $MapSlotValue<TValues extends readonly RawValue[]> =
-  TValues extends readonly (infer TSlot extends Slot)[]
-    ? {
-        // `Slot<"id", string | number> | Slot<"id", string>` の場合、`(string | number) & (string)` となるように、各スロットの積集合をとります。
-        [TName in TSlot["name"]]: $MergeSlotValue<UnionToTuple<Extract<TSlot, Slot<TName>>>>;
-      }
-    : {};
+type $MapSlotValue<TValues extends readonly RawValue[]> = TValues extends readonly (infer TSlot)[]
+  ? {
+      // `Slot<"id", string | number> | Slot<"id", string>` の場合、`(string | number) & (string)` となるように、各スロットの積集合をとります。
+      [TName in Extract<TSlot, Slot>["name"]]: $MergeSlotValue<
+        UnionToTuple<Extract<TSlot, Slot<TName>>>
+      >;
+    }
+  : {};
 
 /**
  * 指定された値のリストに対して、スロットを実際の内容で置き換えた型を生成します。
