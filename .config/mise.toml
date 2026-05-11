@@ -40,7 +40,7 @@ run = "npx oxlint --config ./.config/.oxlintrc.json"
 
 [tasks.update]
 run = [
-  "npx npm-check-updates --target minor -u --cooldown 7",
+  "npx npm-check-updates --target minor -u --cooldown 7 --reject oxfmt --reject oxlint --reject oxlint-tsgolint",
   "pnpm install",
   "npx playwright install --with-deps",
   "pnpm audit",
