@@ -261,9 +261,10 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
       );
     }
 
-    const strings: [string, ...string[]] = [rawStrings[0]!];
+    const parts: [string, ...string[]] = [rawStrings[0]!];
     const bindings: Value[] = [];
-    const placeholderIds: number[] = [];
+
+    const phIds: number[] = [];
     const idx2slot = new Map<number, Slot>();
     const slot2idx = new Map<string, Set<number>>();
 
@@ -318,7 +319,7 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
       // バインディング値が Sql インスタンス（ネストされたクエリー）の場合の処理です。
       if (child instanceof Sql) {
         // 現在の最後の文字列断片に、ネストされた Sql の最初の断片を結合します。
-        strings[strings.length - 1] += child.#state.parts[0];
+        parts[parts.length - 1] += child.#state.parts[0];
 
         // ネストされた Sql のプレースホルダーと値を再マッピングします。
         for (let j = 0; j < child.#state.phIds.length; j++) {
@@ -327,28 +328,27 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
           const value = child.values[valueIndex]!;
 
           const slot = child.#state.idx2slot.get(valueIndex);
-
           const placeholderId = slot !== undefined ? registerSlot(slot) : registerValue(value);
 
-          strings.push(child.#state.parts[j + 1]!);
-          placeholderIds.push(placeholderId);
+          parts.push(child.#state.parts[j + 1]!);
+          phIds.push(placeholderId);
         }
 
         // ネストされた Sql の展開が終わった後に、後続の生の文字列を結合します。
-        strings[strings.length - 1] += rawString;
+        parts[parts.length - 1] += rawString;
       } else {
         const placeholderId = child instanceof Slot ? registerSlot(child) : registerValue(child);
 
-        strings.push(rawString);
-        placeholderIds.push(placeholderId);
+        parts.push(rawString);
+        phIds.push(placeholderId);
       }
     }
 
     this.values = bindings;
 
     this.#state = {
-      parts: strings,
-      phIds: placeholderIds,
+      parts,
+      phIds,
       idx2slot,
       slot2idx,
     };
