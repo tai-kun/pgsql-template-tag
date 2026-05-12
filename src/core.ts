@@ -173,11 +173,23 @@ export type FillAllSlots<TValues extends readonly RawValue[] = readonly RawValue
   $MapSlotValue<TValues>
 >;
 
+/**
+ * SQL パラメーターのバインディング情報を管理する内部クラスです。
+ */
 class Bindings {
+  /**
+   * バインドされる値の配列です。
+   */
   public readonly values: Value[];
 
+  /**
+   * インデックスからスロットへのマッピングです。
+   */
   public readonly idx2slot: Map<number, Slot>;
 
+  /**
+   * スロット名からインデックスの集合へのマッピングです。
+   */
   public readonly slot2idx: Map<string, Set<number>>;
 
   /**
@@ -185,6 +197,9 @@ class Bindings {
    */
   private readonly value2id: Map<Value, number>;
 
+  /**
+   * インスタンスを初期化します。
+   */
   public constructor() {
     this.values = [];
     this.idx2slot = new Map();
@@ -192,6 +207,12 @@ class Bindings {
     this.value2id = new Map();
   }
 
+  /**
+   * 値またはスロットをレジストリーに登録します。
+   *
+   * @param value 登録する値です。
+   * @returns 割り当てられたプレースホルダー ID（1 始まり）を返します。
+   */
   public register(value: Value): number {
     if (value instanceof Slot) {
       return this.registerSlot(value);
@@ -200,6 +221,12 @@ class Bindings {
     }
   }
 
+  /**
+   * スロットをレジストリーに登録します。
+   *
+   * @param slot 登録するスロットです。
+   * @returns 割り当てられたプレースホルダー ID を返します。
+   */
   private registerSlot(slot: Slot): number {
     let placeholderId = this.value2id.get(slot);
     if (placeholderId === undefined) {
@@ -217,6 +244,12 @@ class Bindings {
     return placeholderId;
   }
 
+  /**
+   * 生の値をレジストリーに登録します。
+   *
+   * @param value 登録する値です。
+   * @returns 割り当てられたプレースホルダー ID を返します。
+   */
   private registerValue(value: Value): number {
     let placeholderId = this.value2id.get(value);
     if (placeholderId === undefined) {
@@ -232,6 +265,11 @@ class Bindings {
  * Sql クラスの内部状態を管理するためのプライベートな型定義です。
  */
 type PrivateState = {
+  /**
+   * キャッシュされた最終的なクエリーテキストです。
+   */
+  text: string | null;
+
   /**
    * クエリーを構成する静的な文字列の配列です。
    */
@@ -251,11 +289,6 @@ type PrivateState = {
    * スロット名 -> values のインデックス のマップです。
    */
   readonly slot2idx: ReadonlyMap<string, ReadonlySet<number>>;
-
-  /**
-   * キャッシュされた最終的なクエリーテキストです。
-   */
-  text?: string;
 };
 
 let internalUse = false;
@@ -269,27 +302,25 @@ let internalUse = false;
  */
 export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawValue[]> {
   /**
-   * 構築された SQL クエリーテキストを取得します。
+   * 構築された SQL クエリーテキストです。
    *
    * 初回アクセス時に文字列が結合され、結果はキャッシュされます。
-   *
-   * @returns SQL クエリーテキストを返します。
    */
   public get text(): string {
+    const state = this.#state;
     // キャッシュが存在しない場合にのみ、文字列を構築します。
-    if (this.#state.text === undefined) {
-      let i = 0,
-        text = this.#state.parts[0];
+    if (state.text === null) {
+      let text = state.parts[0];
 
       // 文字列の断片とプレースホルダー（$1, $2...）を交互に結合します。
-      for (; i < this.#state.phIds.length; i++) {
-        text += "$" + this.#state.phIds[i] + this.#state.parts[i + 1];
+      for (let i = 0; i < state.phIds.length; i++) {
+        text += "$" + state.phIds[i] + state.parts[i + 1];
       }
 
-      this.#state.text = text;
+      state.text = text;
     }
 
-    return this.#state.text;
+    return state.text;
   }
 
   /**
@@ -367,6 +398,7 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
     this.values = bindings.values;
 
     this.#state = {
+      text: null,
       parts,
       phIds,
       idx2slot: bindings.idx2slot,
@@ -392,6 +424,8 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
     const state = this.#state;
     const filled = new Set<number>();
     const values = this.values.slice();
+
+    // 指定された値を走査し、対応するインデックスの値を置換します。
     for (const [target, value] of new Map(slots)) {
       let idxes: ReadonlySet<number> | undefined;
       if (typeof target === "string") {
@@ -476,8 +510,9 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
 
     internalUse = true;
     try {
-      // @ts-expect-error
+      // @ts-expect-error: プライベートな呼び出しのため型チェックを抑制します。
       return new Sql(bindings.values, {
+        text: null,
         parts,
         phIds,
         idx2slot: bindings.idx2slot,
