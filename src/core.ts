@@ -173,6 +173,61 @@ export type FillAllSlots<TValues extends readonly RawValue[] = readonly RawValue
   $MapSlotValue<TValues>
 >;
 
+class Bindings {
+  public readonly values: Value[];
+
+  public readonly idx2slot: Map<number, Slot>;
+
+  public readonly slot2idx: Map<string, Set<number>>;
+
+  /**
+   * 値の重複を排除し、同じ値には同じプレースホルダー ID を割り当てるためのマップです。
+   */
+  private readonly value2id: Map<Value, number>;
+
+  public constructor() {
+    this.values = [];
+    this.idx2slot = new Map();
+    this.slot2idx = new Map();
+    this.value2id = new Map();
+  }
+
+  public register(value: Value): number {
+    if (value instanceof Slot) {
+      return this.registerSlot(value);
+    } else {
+      return this.registerValue(value);
+    }
+  }
+
+  private registerSlot(slot: Slot): number {
+    let placeholderId = this.value2id.get(slot);
+    if (placeholderId === undefined) {
+      placeholderId = this.values.push(slot.defaultValue);
+      this.value2id.set(slot, placeholderId);
+
+      const idx = placeholderId - 1;
+      this.idx2slot.set(idx, slot);
+      const idxes =
+        // TODO(tai-kun): this.slot2idx.getOrInsert(slot.name, new Set())
+        this.slot2idx.get(slot.name) || this.slot2idx.set(slot.name, new Set()).get(slot.name)!;
+      idxes.add(idx);
+    }
+
+    return placeholderId;
+  }
+
+  private registerValue(value: Value): number {
+    let placeholderId = this.value2id.get(value);
+    if (placeholderId === undefined) {
+      placeholderId = this.values.push(value);
+      this.value2id.set(value, placeholderId);
+    }
+
+    return placeholderId;
+  }
+}
+
 /**
  * Sql クラスの内部状態を管理するためのプライベートな型定義です。
  */
@@ -271,95 +326,51 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
     }
 
     const parts: [string, ...string[]] = [rawStrings[0]!];
-    const bindings: Value[] = [];
-
     const phIds: number[] = [];
-    const idx2slot = new Map<number, Slot>();
-    const slot2idx = new Map<string, Set<number>>();
-
-    /** 値の重複を排除し、同じ値には同じプレースホルダー ID を割り当てるためのマップです。 */
-    const valueToId = new Map<Value, number>();
-
-    /** スロットごとのプレースホルダー ID を管理します。 */
-    const slotToId = new Map<Slot, number>();
-
-    /**
-     * 値を bindings に登録し、placeholderId を取得します。
-     */
-    const registerValue = (value: Value): number => {
-      let placeholderId = valueToId.get(value);
-      if (placeholderId === undefined) {
-        bindings.push(value);
-        placeholderId = bindings.length;
-        valueToId.set(value, placeholderId);
-      }
-
-      return placeholderId;
-    };
-
-    /**
-     * スロットを bindings に登録し、placeholderId を取得します。
-     */
-    const registerSlot = (slot: Slot): number => {
-      let placeholderId = slotToId.get(slot);
-      if (placeholderId === undefined) {
-        bindings.push(slot.defaultValue);
-        placeholderId = bindings.length;
-        slotToId.set(slot, placeholderId);
-
-        const index = placeholderId - 1;
-        idx2slot.set(index, slot);
-        let idxes = slot2idx.get(slot.name);
-        if (idxes === undefined) {
-          idxes = new Set();
-          slot2idx.set(slot.name, idxes);
-        }
-        idxes.add(index);
-      }
-
-      return placeholderId;
-    };
+    const bindings = new Bindings();
 
     // 提供された全てのバインディング値を走査して、SQL 文字列と値を正規化します。
     for (let i = 0; i < rawBindings.length; i++) {
+      const part = rawStrings[i + 1]!;
       const child = rawBindings[i];
-      const rawString = rawStrings[i + 1]!;
 
       // バインディング値が Sql インスタンス（ネストされたクエリー）の場合の処理です。
       if (child instanceof Sql) {
+        const state = child.#state;
         // 現在の最後の文字列断片に、ネストされた Sql の最初の断片を結合します。
-        parts[parts.length - 1] += child.#state.parts[0];
+        parts[parts.length - 1] += state.parts[0];
 
         // ネストされた Sql のプレースホルダーと値を再マッピングします。
-        for (let j = 0; j < child.#state.phIds.length; j++) {
-          const childPlaceholderId = child.#state.phIds[j]!;
+        for (let j = 0; j < state.phIds.length; j++) {
+          const part = state.parts[j + 1]!;
+
+          const childPlaceholderId = state.phIds[j]!;
           const valueIndex = childPlaceholderId - 1;
           const value = child.values[valueIndex]!;
 
-          const slot = child.#state.idx2slot.get(valueIndex);
-          const placeholderId = slot !== undefined ? registerSlot(slot) : registerValue(value);
+          const placeholderId = bindings.register(value);
 
-          parts.push(child.#state.parts[j + 1]!);
+          parts.push(part);
           phIds.push(placeholderId);
         }
 
         // ネストされた Sql の展開が終わった後に、後続の生の文字列を結合します。
-        parts[parts.length - 1] += rawString;
+        parts[parts.length - 1] += part;
       } else {
-        const placeholderId = child instanceof Slot ? registerSlot(child) : registerValue(child);
+        const placeholderId = bindings.register(child);
 
-        parts.push(rawString);
+        parts.push(part);
         phIds.push(placeholderId);
       }
     }
 
-    this.values = bindings;
+    this.values = bindings.values;
 
     this.#state = {
       parts,
       phIds,
-      idx2slot,
-      slot2idx,
+      idx2slot: bindings.idx2slot,
+      slot2idx: bindings.slot2idx,
     };
   }
 
@@ -378,16 +389,16 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
       slots = new Map(slots);
     }
 
-    const { idx2slot, slot2idx } = this.#state;
+    const state = this.#state;
     const filled = new Set<number>();
     const values = this.values.slice();
     for (const [target, value] of new Map(slots)) {
       let idxes: ReadonlySet<number> | undefined;
       if (typeof target === "string") {
-        idxes = slot2idx.get(target);
+        idxes = state.slot2idx.get(target);
       } else {
         // インスタンスが直接指定された場合、全インデックスから一致するものを探します。
-        for (const [idx, slot] of idx2slot) {
+        for (const [idx, slot] of state.idx2slot) {
           if (slot === target) {
             idxes ||= new Set();
             (idxes as Set<number>).add(idx);
@@ -395,27 +406,24 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
         }
       }
 
-      if (idxes === undefined) {
-        // スロットが見つからない場合は無視します。
-        continue;
-      }
-
-      // 該当するすべてのプレースホルダーインデックスを新しい値で更新します。
-      for (const idx of idxes) {
-        values[idx] = value;
-        filled.add(idx);
+      if (idxes !== undefined) {
+        // 該当するすべてのプレースホルダーインデックスを新しい値で更新します。
+        for (const idx of idxes) {
+          values[idx] = value;
+          filled.add(idx);
+        }
       }
     }
 
     // 全て埋める必要がある場合、未解決のスロットが残っていないか検証します。
     if (all) {
       for (let idx = 0; idx < values.length; idx++) {
-        if (idx2slot.has(idx) && !filled.has(idx)) {
+        if (state.idx2slot.has(idx) && !filled.has(idx)) {
           const missingSlots = new Set<string>();
-          missingSlots.add(idx2slot.get(idx)!.name);
+          missingSlots.add(state.idx2slot.get(idx)!.name);
           for (; idx < values.length; idx++) {
-            if (idx2slot.has(idx)) {
-              missingSlots.add(idx2slot.get(idx)!.name);
+            if (state.idx2slot.has(idx)) {
+              missingSlots.add(state.idx2slot.get(idx)!.name);
             }
           }
 
@@ -424,10 +432,57 @@ export class Sql<const TRawBindings extends readonly RawValue[] = readonly RawVa
       }
     }
 
+    const parts: [string, ...string[]] = [state.parts[0]!];
+    const phIds: number[] = [];
+    const bindings = new Bindings();
+
+    // 提供された全てのバインディング値を走査して、SQL 文字列と値を正規化します。
+    for (let i = 0; i < state.phIds.length; i++) {
+      const part = state.parts[i + 1]!;
+
+      const placeholderId = state.phIds[i]!;
+      const valueIndex = placeholderId - 1;
+      const child = values[valueIndex];
+
+      // バインディング値が Sql インスタンス（ネストされたクエリー）の場合の処理です。
+      if (child instanceof Sql) {
+        const state = child.#state;
+        // 現在の最後の文字列断片に、ネストされた Sql の最初の断片を結合します。
+        parts[parts.length - 1] += state.parts[0];
+
+        // ネストされた Sql のプレースホルダーと値を再マッピングします。
+        for (let j = 0; j < state.phIds.length; j++) {
+          const part = state.parts[j + 1]!;
+
+          const childPlaceholderId = state.phIds[j]!;
+          const valueIndex = childPlaceholderId - 1;
+          const value = child.values[valueIndex]!;
+
+          const placeholderId = bindings.register(value);
+
+          parts.push(part);
+          phIds.push(placeholderId);
+        }
+
+        // ネストされた Sql の展開が終わった後に、後続の生の文字列を結合します。
+        parts[parts.length - 1] += part;
+      } else {
+        const placeholderId = bindings.register(child);
+
+        parts.push(part);
+        phIds.push(placeholderId);
+      }
+    }
+
     internalUse = true;
     try {
       // @ts-expect-error
-      return new Sql(values, this.#state);
+      return new Sql(bindings.values, {
+        parts,
+        phIds,
+        idx2slot: bindings.idx2slot,
+        slot2idx: bindings.slot2idx,
+      } satisfies PrivateState);
     } finally {
       internalUse = false;
     }

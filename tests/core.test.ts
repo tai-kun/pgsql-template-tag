@@ -206,23 +206,23 @@ describe("Sql.fill メソッド (オブジェクト形式)", () => {
     });
   });
 
-  // test("同じ名前のスロットが複数箇所にあるとき、全てのプレースホルダーが更新される", ({
-  //   expect,
-  // }) => {
-  //   // Arrange
-  //   const s1 = new Slot("dup", 0);
-  //   const s2 = new Slot("dup", 0);
-  //   const sql = new Sql(["a = ", " OR b = ", ""], [s1, s2]);
+  test("同じ名前のスロットが複数箇所にあるとき、全てのプレースホルダーが更新される", ({
+    expect,
+  }) => {
+    // Arrange
+    const s1 = new Slot("dup", 0);
+    const s2 = new Slot("dup", 0);
+    const sql = new Sql(["a = ", " OR b = ", ""], [s1, s2]);
 
-  //   // Act
-  //   const filled = sql.fill({ dup: 10 });
+    // Act
+    const filled = sql.fill({ dup: 10 });
 
-  //   // Assert
-  //   expect(filled.toJSON()).toStrictEqual({
-  //     text: "a = $1 OR b = $1",
-  //     values: [10],
-  //   });
-  // });
+    // Assert
+    expect(filled.toJSON()).toStrictEqual({
+      text: "a = $1 OR b = $1",
+      values: [10],
+    });
+  });
 });
 
 describe("Sql.fill メソッド (Iterable 形式)", () => {
