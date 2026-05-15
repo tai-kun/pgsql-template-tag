@@ -1,3 +1,15 @@
-export { type Value, type RawValue, Sql, Slot, empty, join, raw, ident, slot } from "./core.js";
+export {
+  type Value,
+  type RawValue,
+  raw,
+  Sql,
+  join,
+  slot,
+  Slot,
+  empty,
+  ident,
+  escapeIdent,
+  escapeLiteral,
+} from "./core.js";
 
 export { sql } from "./sql.js";

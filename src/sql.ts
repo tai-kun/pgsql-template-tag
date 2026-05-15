@@ -1,4 +1,16 @@
-import { empty, join, raw, Sql, ident, literal, Slot, RawValue, slot } from "./core.js";
+import {
+  raw,
+  Sql,
+  join,
+  slot,
+  Slot,
+  empty,
+  ident,
+  literal,
+  RawValue,
+  escapeIdent,
+  escapeLiteral,
+} from "./core.js";
 
 namespace sql {
   /**
@@ -94,6 +106,16 @@ const sql = /*#__PURE__*/ Object.assign(
      * 文字列を安全にエスケープするための関数です。
      */
     literal,
+
+    /**
+     * 識別子（テーブル名等）を安全にエスケープするための関数です。
+     */
+    escapeIdent,
+
+    /**
+     * 文字列を安全にエスケープするための関数です。
+     */
+    escapeLiteral,
   } as const,
 );
 

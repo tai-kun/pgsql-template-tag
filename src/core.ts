@@ -625,13 +625,23 @@ const DOUBLE_QUOTE_REGEX = /"/g;
 /**
  * 文字列を SQL の識別子（テーブル名やカラム名など）として安全にエスケープします。
  *
+ * @param value エスケープする識別子の文字列です。
+ * @returns エスケープ済みの識別子文字列を返します。
+ */
+export function escapeIdent(value: string): string {
+  return value.replace(DOUBLE_QUOTE_REGEX, '""');
+}
+
+/**
+ * 文字列を SQL の識別子（テーブル名やカラム名など）として安全にエスケープします。
+ *
  * 二重引用符を二重にすることでエスケープを行い、全体を二重引用符で囲みます。
  *
  * @param value エスケープする識別子の文字列です。
  * @returns エスケープ済みの識別子文字列を返します。
  */
-export function ident(value: string): string {
-  return '"' + value.replace(DOUBLE_QUOTE_REGEX, '""') + '"';
+export function ident(value: string): `"${string}"` {
+  return `"${escapeIdent(value)}"`;
 }
 
 /**
@@ -642,13 +652,23 @@ const SINGLE_QUOTE_REGEX = /'/g;
 /**
  * 文字列を SQL のリテラル文字列として安全にエスケープします。
  *
+ * @param value エスケープする文字列です。
+ * @returns エスケープ済みのリテラル文字列を返します。
+ */
+export function escapeLiteral(value: string): string {
+  return value.replace(SINGLE_QUOTE_REGEX, "''");
+}
+
+/**
+ * 文字列を SQL のリテラル文字列として安全にエスケープします。
+ *
  * 一重引用符を二重にすることでエスケープを行い、全体を一重引用符で囲みます。
  *
  * @param value エスケープする文字列です。
  * @returns エスケープ済みのリテラル文字列を返します。
  */
-export function literal(value: string): string {
-  return "'" + value.replace(SINGLE_QUOTE_REGEX, "''") + "'";
+export function literal(value: string): `'${string}'` {
+  return `'${escapeLiteral(value)}'`;
 }
 
 /**
