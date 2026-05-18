@@ -97,19 +97,6 @@ type $MergeSlotValue<TSlots> = TSlots extends [
     ? TValue
     : never;
 
-type $ExtractSlot<TValues extends readonly RawValue[]> = TValues extends readonly [
-  infer TValue,
-  ...infer OterValues,
-]
-  ?
-      | (TValue extends Slot
-          ? TValue
-          : TValue extends Sql<infer TValues>
-            ? $ExtractSlot<TValues>
-            : never)
-      | $ExtractSlot<OterValues>
-  : never;
-
 /**
  * Value の配列からスロット情報を抽出し、名前ごとのマップ型に変換します。
  *
@@ -126,16 +113,19 @@ type $MapSlotValue<TSlot extends Slot> = {
  * @template TValues 置き換え対象の配列型です。
  * @template TSlots スロット名と値のマップ型です。
  */
-type $FillSlots<TValues, TSlots> = TValues extends [infer TValue, ...infer TOtherValues]
-  ? [
-      TValue extends Slot<infer TName extends Extract<keyof TSlots, string>, infer TSlotValue>
-        ? TSlotValue extends TSlots[TName]
-          ? TSlotValue
-          : TValue
-        : TValue,
-      ...$FillSlots<TOtherValues, TSlots>,
-    ]
-  : [];
+type $FillSlots<TValues extends readonly RawValue[], TSlots> = number extends TValues["length"]
+  ? readonly (
+      | TSlots[Extract<TValues[number], Slot<Extract<keyof TSlots, string>>>["name"]]
+      | Exclude<TValues[number], Slot<Extract<keyof TSlots, string>>>
+    )[]
+  : TValues extends [infer TValue, ...infer TOtherValues]
+    ? [
+        TValue extends Slot<infer TName extends Extract<keyof TSlots, string>>
+          ? TSlots[TName]
+          : TValue,
+        ...$FillSlots<TOtherValues, TSlots>,
+      ]
+    : [];
 
 /**
  * スロットを埋めるための部分的な引数型を定義します。
@@ -170,7 +160,7 @@ type _FillAllSlots<TSlots> = {
  * @template TValues RawValue の配列です。
  */
 export type FillSlots<TValues extends readonly RawValue[] = readonly RawValue[]> = _FillSlots<
-  $MapSlotValue<$ExtractSlot<TValues>>
+  $MapSlotValue<Extract<TValues[number], Slot>>
 >;
 
 /**
@@ -179,7 +169,7 @@ export type FillSlots<TValues extends readonly RawValue[] = readonly RawValue[]>
  * @template TValues RawValue の配列です。
  */
 export type FillAllSlots<TValues extends readonly RawValue[] = readonly RawValue[]> = _FillAllSlots<
-  $MapSlotValue<$ExtractSlot<TValues>>
+  $MapSlotValue<Extract<TValues[number], Slot>>
 >;
 
 /**
