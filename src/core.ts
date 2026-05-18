@@ -1,6 +1,9 @@
 import { isPlainObject } from "es-toolkit/predicate";
 import type { UnionToTuple } from "type-fest";
 
+declare const nil: unique symbol;
+type Nil = typeof nil;
+
 /**
  * SQL クエリー内で使用される値の型定義です。
  */
@@ -116,7 +119,7 @@ type $MapSlotValue<TSlot extends Slot> = {
  * @template TValues 置き換え対象の配列型です。
  * @template TSlots スロット名と値のマップ型です。
  */
-type $FillSlots<TValues extends readonly RawValue[], TSlots> = number extends TValues["length"]
+type $FillSlots<TValues extends Values, TSlots> = number extends TValues["length"]
   ? readonly (
       | TSlots[Extract<TValues[number], Slot<Extract<keyof TSlots, string>>>["name"]]
       | Exclude<TValues[number], Slot<Extract<keyof TSlots, string>>>
@@ -162,18 +165,18 @@ type _FillAllSlots<TSlots> = {
 /**
  * スロットの部分的な補完に使用する外部向けの型定義です。
  *
- * @template TValues RawValue の配列です。
+ * @template TValues Value の配列です。
  */
-export type FillSlots<TValues extends readonly RawValue[] = readonly RawValue[]> = _FillSlots<
+export type FillSlots<TValues extends Values = Values> = _FillSlots<
   $MapSlotValue<Extract<TValues[number], Slot>>
 >;
 
 /**
  * すべてのスロットの強制的な補完に使用する外部向けの型定義です。
  *
- * @template TValues RawValue の配列です。
+ * @template TValues Value の配列です。
  */
-export type FillAllSlots<TValues extends readonly RawValue[] = readonly RawValue[]> = _FillAllSlots<
+export type FillAllSlots<TValues extends Values = Values> = _FillAllSlots<
   $MapSlotValue<Extract<TValues[number], Slot>>
 >;
 
@@ -182,20 +185,23 @@ export type FillAllSlots<TValues extends readonly RawValue[] = readonly RawValue
  *
  * @template TRawBindings クエリーに渡される生の値のタプル型です。
  */
-export type Values<TRawBindings extends readonly RawValue[] = readonly RawValue[]> =
-  number extends TRawBindings["length"]
-    ? readonly (
-        | Exclude<TRawBindings[number], Sql>
-        | (Extract<TRawBindings[number], Sql> extends Sql<infer TRawBindings>
-            ? TRawBindings[number]
-            : never)
-      )[]
-    : TRawBindings extends readonly [infer TRawBinding, ...infer TOtherRawBindings]
-      ? readonly [
+export type Values<TRawBindings extends readonly RawValue[] | Nil = Nil> = TRawBindings extends Nil
+  ? // 型パラメーター無しに対しては、利便性のために `readonly []` ではなく `readonly Value[]` を返します。
+    readonly Value[]
+  : TRawBindings extends ArrayLike<infer TRawBinding>
+    ? // 任意帳配列：深さ 1 までの要素の Sql パラメーターを取り出してフラット化します。
+      readonly (TRawBinding extends Sql<readonly (infer TInnerRawBinding)[]>
+        ? TInnerRawBinding
+        : TRawBinding)[]
+    : // 固定長配列：
+      TRawBindings extends readonly [infer TRawBinding, ...infer TOtherRawBindings]
+      ? //要素を一つずつ確認し、Sql パラメーターを取り出してフラット化します。
+        readonly [
           ...(TRawBinding extends Sql<infer TRawBindings> ? TRawBindings : [TRawBinding]),
           ...Values<TOtherRawBindings>,
         ]
-      : readonly [];
+      : // 固定長配列の残りが無ければ空配列を返します.
+        readonly [];
 
 /**
  * Sql クラスの内部状態を管理するためのプライベートな型定義です。
@@ -430,9 +436,9 @@ export class Sql<
     super();
 
     if (internalUse) {
-      this.text = arguments[0] as string;
-      this.values = arguments[1] as Values<TRawBindings>;
-      this.#state = arguments[2] as PrivateState;
+      this.text = arguments[0];
+      this.values = arguments[1];
+      this.#state = arguments[2];
       return;
     }
 
@@ -551,9 +557,9 @@ export class Sql<
    * @param slots スロットの値です。
    * @returns スロットが埋められた新しい Sql インスタンスです。
    */
-  public fill<TSlots extends FillSlots<TRawBindings>>(
+  public fill<TSlots extends FillSlots<Values<TRawBindings>>>(
     slots: TSlots,
-  ): Sql<$FillSlots<TRawBindings, TSlots>> {
+  ): Sql<$FillSlots<Values<TRawBindings>, TSlots>> {
     return this.#fill(slots, false);
   }
 
@@ -564,9 +570,9 @@ export class Sql<
    * @param slots スロットの値です。
    * @returns スロットが埋められた新しい Sql インスタンスです。
    */
-  public fillAll<TSlots extends FillAllSlots<TRawBindings>>(
+  public fillAll<TSlots extends FillAllSlots<Values<TRawBindings>>>(
     slots: TSlots,
-  ): Sql<$FillSlots<TRawBindings, TSlots>> {
+  ): Sql<$FillSlots<Values<TRawBindings>, TSlots>> {
     return this.#fill(slots, true);
   }
 
