@@ -86,6 +86,7 @@ type $ValueOf<T> = T[keyof T];
  * スロットの配列から、再帰的に値をマージして型を決定します。
  *
  * @template TSlots スロットのタプル型です。
+ * @see {@link MapSlotValue}
  */
 type $MergeSlotValue<TSlots> = TSlots extends [
   Slot<string, infer TValue>,
@@ -101,6 +102,8 @@ type $MergeSlotValue<TSlots> = TSlots extends [
  * Value の配列からスロット情報を抽出し、名前ごとのマップ型に変換します。
  *
  * @template TValues Value の読み取り専用配列型です。
+ * @see {@link FillSlots}
+ * @see {@link FillAllSlots}
  */
 type $MapSlotValue<TSlot extends Slot> = {
   // `Slot<"id", string | number> | Slot<"id", string>` の場合、`(string | number) & (string)` となるように、各スロットの積集合をとります。
@@ -119,18 +122,19 @@ type $FillSlots<TValues extends readonly RawValue[], TSlots> = number extends TV
       | Exclude<TValues[number], Slot<Extract<keyof TSlots, string>>>
     )[]
   : TValues extends [infer TValue, ...infer TOtherValues]
-    ? [
+    ? readonly [
         TValue extends Slot<infer TName extends Extract<keyof TSlots, string>>
           ? TSlots[TName]
           : TValue,
         ...$FillSlots<TOtherValues, TSlots>,
       ]
-    : [];
+    : readonly [];
 
 /**
  * スロットを埋めるための部分的な引数型を定義します。
  *
  * @template TSlots スロット名と値のマップ型です。
+ * @see {@link FillSlots}
  */
 type _FillSlots<TSlots> =
   | {
@@ -149,6 +153,7 @@ type _FillSlots<TSlots> =
  * すべてのスロットを埋めるために必要な引数型を定義します。
  *
  * @template TSlots スロット名と値のマップ型です。
+ * @see {@link FillAllSlots}
  */
 type _FillAllSlots<TSlots> = {
   readonly [TName in Extract<keyof TSlots, string>]: TSlots[TName];
@@ -578,20 +583,36 @@ export class Sql<
  * @param value SQL に含める生の文字列です。
  * @returns 指定された文字列を持つ Sql インスタンスを返します。
  */
-export function raw(value: string): Sql<[]> {
+export function raw(value: string): Sql<readonly []> {
   return new Sql([value], []);
 }
 
 /**
  * 空の SQL インスタンスを表す定数です。
  */
-export const empty: Sql<[]> = raw("");
+export const empty: Sql<readonly []> = raw("");
+
+/**
+ * @template TValues 結合対象の RawValue の配列です。
+ */
+type $JoinValues<TValues extends readonly RawValue[]> = number extends TValues["length"]
+  ? readonly (
+      | (Extract<TValues[number], Sql> extends Sql<infer TValues> ? TValues : never)
+      | Exclude<TValues[number], Sql>
+    )[]
+  : TValues extends [infer TValue, ...infer TOtherValues]
+    ? readonly [
+        ...(TValue extends Sql<infer TValues> ? TValues : [TValue]),
+        ...$JoinValues<TOtherValues>,
+      ]
+    : readonly [];
 
 /**
  * 複数の SQL 断片や値を、指定されたセパレーターで結合します。
  *
  * 配列が空の場合は、{@link empty} を返します。
  *
+ * @template TValues 結合対象の RawValue の配列です。
  * @param values 結合対象となる値の配列です。
  * @param separator 結合時に挿入される文字列です。デフォルトはカンマ（,）です。
  * @returns 結合された新しい Sql インスタンスを返します。
@@ -599,7 +620,7 @@ export const empty: Sql<[]> = raw("");
 export function join<const TValues extends readonly RawValue[]>(
   values: TValues,
   separator: string | undefined = ",",
-): Sql<TValues> {
+): Sql<$JoinValues<TValues>> {
   if (values.length === 0) {
     return empty;
   }

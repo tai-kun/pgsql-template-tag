@@ -1,6 +1,8 @@
 export {
   type Value,
   type RawValue,
+  type FillSlots,
+  type FillAllSlots,
   raw,
   Sql,
   join,
