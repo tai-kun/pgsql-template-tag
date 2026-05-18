@@ -314,7 +314,7 @@ export class Sql<
 
             const bindingPlaceholderId = state.phIds[j]!;
             const valueIndex = bindingPlaceholderId - 1;
-            const value = binding.values[valueIndex]!;
+            const value = state.idx2slot.get(valueIndex) ?? binding.values[valueIndex];
 
             const placeholderId = this._register(value);
 
@@ -533,7 +533,9 @@ export class Sql<
     for (let i = 0; i < state.phIds.length; i++) {
       const placeholderId = state.phIds[i]!;
       const valueIndex = placeholderId - 1;
-      const binding = values[valueIndex];
+      const binding = filled.has(valueIndex)
+        ? values[valueIndex]
+        : (state.idx2slot.get(valueIndex) ?? values[valueIndex]);
 
       const part = state.parts[i + 1]!;
 
