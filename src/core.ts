@@ -597,7 +597,7 @@ export const empty: Sql<readonly []> = raw("");
  */
 type $JoinValues<TValues extends readonly RawValue[]> = number extends TValues["length"]
   ? readonly (
-      | (Extract<TValues[number], Sql> extends Sql<infer TValues> ? TValues : never)
+      | (Extract<TValues[number], Sql> extends Sql<infer TValues> ? TValues[number] : never)
       | Exclude<TValues[number], Sql>
     )[]
   : TValues extends [infer TValue, ...infer TOtherValues]
