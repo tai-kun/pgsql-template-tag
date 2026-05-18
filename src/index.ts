@@ -1,5 +1,6 @@
 export {
   type Value,
+  type Values,
   type RawValue,
   type FillSlots,
   type FillAllSlots,

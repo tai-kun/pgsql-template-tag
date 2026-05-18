@@ -4,7 +4,7 @@ import { sql } from "../src/sql.js";
 
 test("テンプレートリテラルで Sql インスタンスを作成できる", ({ expect }) => {
   // Act
-  const s = sql`SELECT * FROM u WHERE a = ${1} AND b = [${sql.join([])}]` satisfies sql.Sql;
+  const s = sql`SELECT * FROM u WHERE a = ${1} AND b = [${sql.join([])}]`;
 
   // Assert
   expect(s).toBeInstanceOf(sql.Sql);

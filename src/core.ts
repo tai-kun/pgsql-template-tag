@@ -25,7 +25,7 @@ const SlotTypes = class {} as {
     /**
      * このプロパティーは、TypeScript の `extends Slot` で `Slot` インスタンスのみに一致させるためにあります。そのため、`Slot` と同じプロパティーを持つオブジェクトに対して一致することはありません。
      */
-    readonly ["~kind"]: typeof SLOT_SYMBOL;
+    readonly [SLOT_SYMBOL]: never;
   };
 };
 
@@ -88,13 +88,13 @@ type $ValueOf<T> = T[keyof T];
  * @template TSlots スロットのタプル型です。
  * @see {@link MapSlotValue}
  */
-type $MergeSlotValue<TSlots> = TSlots extends [
+type $MergeSlotValue<TSlots> = TSlots extends readonly [
   Slot<string, infer TValue>,
   infer TSlot,
   ...infer TOtherSlots,
 ]
   ? TValue & $MergeSlotValue<[TSlot, ...TOtherSlots]>
-  : TSlots extends [Slot<string, infer TValue>]
+  : TSlots extends readonly [Slot<string, infer TValue>]
     ? TValue
     : never;
 
@@ -121,7 +121,7 @@ type $FillSlots<TValues extends readonly RawValue[], TSlots> = number extends TV
       | TSlots[Extract<TValues[number], Slot<Extract<keyof TSlots, string>>>["name"]]
       | Exclude<TValues[number], Slot<Extract<keyof TSlots, string>>>
     )[]
-  : TValues extends [infer TValue, ...infer TOtherValues]
+  : TValues extends readonly [infer TValue, ...infer TOtherValues]
     ? readonly [
         TValue extends Slot<infer TName extends Extract<keyof TSlots, string>>
           ? TSlots[TName]
@@ -178,6 +178,26 @@ export type FillAllSlots<TValues extends readonly RawValue[] = readonly RawValue
 >;
 
 /**
+ * クエリーに使用されるパラメーター値の配列です。
+ *
+ * @template TRawBindings クエリーに渡される生の値のタプル型です。
+ */
+export type Values<TRawBindings extends readonly RawValue[] = readonly RawValue[]> =
+  number extends TRawBindings["length"]
+    ? readonly (
+        | Exclude<TRawBindings[number], Sql>
+        | (Extract<TRawBindings[number], Sql> extends Sql<infer TRawBindings>
+            ? TRawBindings[number]
+            : never)
+      )[]
+    : TRawBindings extends readonly [infer TRawBinding, ...infer TOtherRawBindings]
+      ? readonly [
+          ...(TRawBinding extends Sql<infer TRawBindings> ? TRawBindings : [TRawBinding]),
+          ...Values<TOtherRawBindings>,
+        ]
+      : readonly [];
+
+/**
  * Sql クラスの内部状態を管理するためのプライベートな型定義です。
  */
 type PrivateState = {
@@ -217,7 +237,7 @@ const SqlTypes = class {} as {
     /**
      * このプロパティーは、TypeScript の `extends Sql` で `Sql` インスタンスのみに一致させるためにあります。そのため、`Sql` と同じプロパティーを持つオブジェクトに対して一致することはありません。
      */
-    readonly ["~kind"]: typeof SQL_SYMBOL;
+    readonly [SQL_SYMBOL]: never;
   };
 };
 
@@ -237,7 +257,7 @@ export class Sql<
    * @param firstPart クエリーの最初のパートです。
    * @returns 内部変数を組み立てるためのビルダーです。
    */
-  static #builder(firstPart: string) {
+  static #builder<TRawBindings extends readonly RawValue[]>(firstPart: string) {
     return {
       /**
        * クエリーを構成する静的な文字列の配列です。
@@ -309,7 +329,7 @@ export class Sql<
       build(): {
         text: string;
         state: PrivateState;
-        values: readonly Value[];
+        values: Values<TRawBindings>;
       } {
         // 文字列の断片とプレースホルダー（$1, $2...）を交互に結合します。
         let text = this._parts[0];
@@ -325,7 +345,7 @@ export class Sql<
             idx2slot: this._idx2slot,
             slot2idx: this._slot2idx,
           },
-          values: this._values,
+          values: this._values as unknown as Values<TRawBindings>,
         };
       },
 
@@ -398,7 +418,7 @@ export class Sql<
   /**
    * クエリーに使用されるパラメーター値の配列です。
    */
-  public readonly values: readonly Value[];
+  public readonly values: Values<TRawBindings>;
 
   /**
    * 新しい Sql インスタンスを初期化します。
@@ -411,7 +431,7 @@ export class Sql<
 
     if (internalUse) {
       this.text = arguments[0] as string;
-      this.values = arguments[1] as Value[];
+      this.values = arguments[1] as Values<TRawBindings>;
       this.#state = arguments[2] as PrivateState;
       return;
     }
@@ -427,7 +447,7 @@ export class Sql<
     }
 
     // 提供された全てのバインディング値を走査して、SQL 文字列と値を正規化します。
-    const builder = Sql.#builder(rawStrings[0]!);
+    const builder = Sql.#builder<TRawBindings>(rawStrings[0]!);
     for (let i = 0; i < rawBindings.length; i++) {
       const binding = rawBindings[i];
 
@@ -449,7 +469,7 @@ export class Sql<
    * @param all 全てのスロットが埋まっているかチェックするかどうかです。
    * @returns 新しい Sql インスタンスを返します。
    */
-  #fill(slots: any, all: boolean): Sql {
+  #fill(slots: any, all: boolean): Sql<any> {
     if (isPlainObject(slots)) {
       slots = Object.entries(slots);
     } else {
@@ -593,21 +613,6 @@ export function raw(value: string): Sql<readonly []> {
 export const empty: Sql<readonly []> = raw("");
 
 /**
- * @template TValues 結合対象の RawValue の配列です。
- */
-type $JoinValues<TValues extends readonly RawValue[]> = number extends TValues["length"]
-  ? readonly (
-      | (Extract<TValues[number], Sql> extends Sql<infer TValues> ? TValues[number] : never)
-      | Exclude<TValues[number], Sql>
-    )[]
-  : TValues extends [infer TValue, ...infer TOtherValues]
-    ? readonly [
-        ...(TValue extends Sql<infer TValues> ? TValues : [TValue]),
-        ...$JoinValues<TOtherValues>,
-      ]
-    : readonly [];
-
-/**
  * 複数の SQL 断片や値を、指定されたセパレーターで結合します。
  *
  * 配列が空の場合は、{@link empty} を返します。
@@ -620,12 +625,12 @@ type $JoinValues<TValues extends readonly RawValue[]> = number extends TValues["
 export function join<const TValues extends readonly RawValue[]>(
   values: TValues,
   separator: string | undefined = ",",
-): Sql<$JoinValues<TValues>> {
+): Sql<TValues> {
   if (values.length === 0) {
-    return empty;
+    return empty as Sql<any>;
   }
 
-  return new Sql(["", ...Array(values.length - 1).fill(separator), ""], values);
+  return new Sql<any>(["", ...Array(values.length - 1).fill(separator), ""], values);
 }
 
 /**
