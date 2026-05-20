@@ -10,7 +10,7 @@ type Nil = typeof nil;
 export type Value = unknown;
 
 /**
- * SQL クエリーの構築に使用できる生の値、または別の Sql インスタンスを表す型です。
+ * SQL クエリーの構築に使用できる値です。
  */
 // oxlint-disable-next-line typescript/no-redundant-type-constituents
 export type RawValue = Value | Slot | Sql;
@@ -183,25 +183,19 @@ export type FillAllSlots<TValues extends Values = Values> = _FillAllSlots<
 /**
  * クエリーに使用されるパラメーター値の配列です。
  *
- * @template TRawBindings クエリーに渡される生の値のタプル型です。
+ * @template TRawBindings クエリーに渡される値のタプル型です。
  */
 export type Values<TRawBindings extends readonly RawValue[] | Nil = Nil> = TRawBindings extends Nil
   ? // 型パラメーター無しに対しては、利便性のために `readonly []` ではなく `readonly Value[]` を返します。
     readonly Value[]
   : TRawBindings extends ArrayLike<infer TRawBinding>
-    ? // 任意帳配列：深さ 1 までの要素の Sql パラメーターを取り出してフラット化します。
-      readonly (TRawBinding extends Sql<readonly (infer TInnerRawBinding)[]>
-        ? TInnerRawBinding
-        : TRawBinding)[]
-    : // 固定長配列：
-      TRawBindings extends readonly [infer TRawBinding, ...infer TOtherRawBindings]
-      ? //要素を一つずつ確認し、Sql パラメーターを取り出してフラット化します。
-        readonly [
-          ...(TRawBinding extends Sql<infer TRawBindings> ? TRawBindings : [TRawBinding]),
-          ...Values<TOtherRawBindings>,
-        ]
-      : // 固定長配列の残りが無ければ空配列を返します.
-        readonly [];
+    ? TRawBindings["length"] extends 0
+      ? readonly []
+      : // 可変長配列：深さ 1 までの要素の Sql パラメーターを取り出してフラット化します。TRawBindings が固定長配列であっても、可変長配列にします。これは、固定長配列の要素の重複排除が複雑になりすぎるためです。
+        readonly (TRawBinding extends Sql<readonly (infer TInnerRawBinding)[]>
+          ? TInnerRawBinding
+          : TRawBinding)[]
+    : never;
 
 /**
  * Sql クラスの内部状態を管理するためのプライベートな型定義です。
@@ -252,7 +246,7 @@ const SqlTypes = class {} as {
  *
  * プレースホルダーを使用したパラメーター化クエリーを生成します。
  *
- * @template TRawBindings クエリーに渡される生の値のタプル型です。
+ * @template TRawBindings クエリーに渡される値のタプル型です。
  */
 export class Sql<
   const TRawBindings extends readonly RawValue[] = readonly RawValue[],
@@ -299,7 +293,7 @@ export class Sql<
        * SQL クエリーに値とパートをバインドします。
        *
        * @param binding 値です。
-       * @param part パートです。
+       * @param part 値に続くパートです。
        */
       bind(binding: Value, part: string): void {
         // バインディング値が Sql インスタンス（ネストされたクエリー）の場合の処理です。
@@ -332,9 +326,25 @@ export class Sql<
         }
       },
 
+      /**
+       * SQL クエリーを構築します。
+       *
+       * @returns SQL クラスの内部変数などです。
+       */
       build(): {
+        /**
+         * 構築された SQL クエリーテキストです。
+         */
         text: string;
+
+        /**
+         * 内部状態です。
+         */
         state: PrivateState;
+
+        /**
+         * クエリーに使用されるパラメーター値の配列です。
+         */
         values: Values<TRawBindings>;
       } {
         // 文字列の断片とプレースホルダー（$1, $2...）を交互に結合します。
@@ -394,7 +404,7 @@ export class Sql<
       },
 
       /**
-       * 生の値をレジストリーに登録します。
+       * 値をレジストリーに登録します。
        *
        * @param value 登録する値です。
        * @returns 割り当てられたプレースホルダー ID を返します。
@@ -412,7 +422,7 @@ export class Sql<
   }
 
   /**
-   * 内部状態を保持するためのプロパティーです。
+   * 内部状態です。
    */
   readonly #state: PrivateState;
 
@@ -699,14 +709,36 @@ export function literal(value: string): `'${string}'` {
  * 新しい Slot インスタンスを作成します。
  *
  * @template TName スロットの名前となる文字列リテラル型です。
+ * @param name スロット名です。
+ * @returns 作成された新しい Slot インスタンスです。
+ */
+export function slot<const TName extends string>(name: TName): Slot<TName>;
+
+/**
+ * 新しい Slot インスタンスを作成します。
+ *
+ * @template TName スロットの名前となる文字列リテラル型です。
  * @template TValue スロットに許容される値の型です。
  * @param name スロット名です。
  * @param defaultValue デフォルト値です。
  * @returns 作成された新しい Slot インスタンスです。
  */
-export function slot<const TName extends string, TValue extends RawValue = RawValue>(
+export function slot<const TName extends string, TValue extends RawValue>(
   name: TName,
-  defaultValue?: TValue,
+): Slot<TName, TValue | null>;
+
+/**
+ * 新しい Slot インスタンスを作成します。
+ *
+ * @template TName スロットの名前となる文字列リテラル型です。
+ * @template TValue スロットに許容される値の型です。
+ * @param name スロット名です。
+ * @param defaultValue デフォルト値です。
+ * @returns 作成された新しい Slot インスタンスです。
+ */
+export function slot<const TName extends string, TValue extends RawValue>(
+  name: TName,
+  defaultValue: TValue,
 ): Slot<TName, TValue>;
 
 export function slot(...args: [any]): Slot {

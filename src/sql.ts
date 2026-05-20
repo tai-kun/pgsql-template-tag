@@ -14,7 +14,7 @@ import {
 
 namespace sql {
   /**
-   * SQL クエリーの構築に使用できる生の値、または別の Sql インスタンスを表す型です。
+   * SQL クエリーの構築に使用できる値です。
    */
   export type RawValue = import("./core.js").RawValue;
 
@@ -39,7 +39,7 @@ namespace sql {
   /**
    * 安全な SQL クエリーを構築するためのクラス型です。
    *
-   * @template TBindings クエリーに渡される生の値のタプル型です。
+   * @template TBindings クエリーに渡される値のタプル型です。
    */
   export type Sql<TBindings extends readonly RawValue[] = readonly RawValue[]> =
     import("./core.js").Sql<TBindings>;
@@ -48,7 +48,7 @@ namespace sql {
 /**
  * テンプレートリテラルを使用して SQL クエリーを安全に構築するためのタグ関数です。
  *
- * @template TBindings クエリーに渡される生の値のタプル型です。
+ * @template TBindings クエリーに渡される値のタプル型です。
  * @param strings テンプレートリテラルの静的な文字列部分の配列です。
  * @param bindings テンプレートリテラルに埋め込まれた動的な値の配列です。
  * @returns パラメーター化された SQL 情報を保持する Sql インスタンスを返します。
